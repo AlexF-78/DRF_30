@@ -1,5 +1,4 @@
-from django.shortcuts import render
-from rest_framework import viewsets, generics
+from rest_framework import generics, viewsets
 
 from lms.models import Course, Lesson
 from lms.serializers import CourseSerializer, LessonSerializer
@@ -12,6 +11,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 
 # CRUD для уроков через Generic-классы
+
 
 # Получение списка уроков
 class LessonListAPIView(generics.ListAPIView):
