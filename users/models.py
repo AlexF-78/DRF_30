@@ -42,3 +42,71 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class Payment(models.Model):
+    """Модель для хранения информации о платежах"""
+
+    # Выбор способа оплаты
+    PAYMENT_METHOD_CASH = "cash"
+    PAYMENT_METHOD_TRANSFER = "transfer"
+    PAYMENT_METHOD_CHOICES = [
+        (PAYMENT_METHOD_CASH, "Наличные"),
+        (PAYMENT_METHOD_TRANSFER, "Перевод на счёт"),
+    ]
+
+    # ссылка на пользователя
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        verbose_name="Пользователь",
+        related_name="payments",
+    )
+
+    # Дата оплаты (автоматически текущая дата)
+    payment_date = models.DateTimeField("Дата оплаты", auto_now_add=True)
+
+    # ссылка на курс (может быть пустой)
+    paid_course = models.ForeignKey(
+        "lms.Course",  # Импортированная модель из lms
+        on_delete=models.SET_NULL,  # при удалении курса, платёж остаётся
+        verbose_name="Оплаченный курс",
+        related_name="payments",
+        blank=True,
+        null=True,
+    )
+
+    # Ссылка на урок (может быть пустой)
+    paid_lesson = models.ForeignKey(
+        "lms.Lesson",  # Импортированная модель из lms
+        on_delete=models.SET_NULL,
+        verbose_name="Оплаченный урок",
+        related_name="payments",
+        blank=True,
+        null=True,
+    )
+
+    # Сумма оплаты
+    amount = models.DecimalField("Сумма оплаты", max_digits=10, decimal_places=2)
+
+    # Способ оплаты
+    payment_method = models.CharField(
+        "Способ оплаты", max_length=20, choices=PAYMENT_METHOD_CHOICES
+    )
+
+    class Meta:
+        verbose_name = "Платёж"
+        verbose_name_plural = "Платежи"
+        ordering = ["-payment_date"]
+
+    def __str__(self):
+        if self.paid_course and self.paid_lesson:
+            paid_for = "Ошибка: Указан и курс и урок"
+        elif self.paid_course:
+            paid_for = f"курс: {self.paid_course.name}"
+        elif self.paid_lesson:
+            paid_for = f"урок: {self.paid_lesson.name}"
+        else:
+            paid_for = "Ошибка: ни курс ни урок"
+
+        return f"Платёж {self.id}: {self.user.email} - {paid_for} - {self.amount} руб."
