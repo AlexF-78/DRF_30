@@ -25,4 +25,5 @@ urlpatterns = [
         views.LessonDestroyAPIView.as_view(),
         name="lesson-delete",
     ),
+    path("payments/", views.PaymentListAPIView.as_view(), name="payment-list"),
 ]
