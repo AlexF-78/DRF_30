@@ -14,7 +14,8 @@ dependencies = [
     "psycopg2-binary (>=2.9.11,<3.0.0)",
     "dotenv (>=0.9.9,<0.10.0)",
     "python-dotenv (>=1.2.1,<2.0.0)",
-    "django-filter (>=25.2,<26.0)"
+    "django-filter (>=25.2,<26.0)",
+    "djangorestframework-simplejwt (>=5.5.1,<6.0.0)"
 ]
 
 [tool.poetry]
