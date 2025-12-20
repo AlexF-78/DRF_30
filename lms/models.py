@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -11,6 +12,15 @@ class Course(models.Model):
         "Превью", upload_to="courses/previews/", blank=True, null=True
     )
     description = models.TextField("Описание", blank=True, null=True)
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        verbose_name="Владелец",
+        related_name="courses",
+        blank=True,
+        null=True
+    )
 
     class Meta:
         verbose_name = "Курс"
@@ -36,6 +46,15 @@ class Lesson(models.Model):
         related_name="lessons",
         blank=True,
         null=True,
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        verbose_name="Владелец",
+        related_name="lessons",
+        blank=True,
+        null=True
     )
 
     class Meta:
