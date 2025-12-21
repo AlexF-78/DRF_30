@@ -4,7 +4,6 @@ from django.contrib.auth.admin import UserAdmin
 from users.models import Payment, User
 
 
-
 # Регистрация модели User с кастомным админским интерфейсом
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
