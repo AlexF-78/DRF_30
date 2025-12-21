@@ -3,7 +3,22 @@ from django.db import models
 
 
 class UserManager(BaseUserManager):
+    """ Менеджер пользователя, реализующий создание обычных пользователей и суперпользователей."""
     def create_user(self, email, password=None, **extra_fields):
+        """
+        Создает и сохраняет пользователя с указанным email и паролем.
+
+        Args:
+            email (str): Электронный адрес пользователя, обязательный для входа.
+            password (str, optional): Пароль пользователя. Если не указан, устанавливается None.
+            **extra_fields: Дополнительные поля модели User.
+
+        Returns:
+            User: созданный объект пользователя.
+
+        Raises:
+            ValueError: Если email не указан.
+        """
         if not email:
             raise ValueError("The Email field must be set")
         email = self.normalize_email(email)
@@ -13,12 +28,37 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
+        """
+        Создает и сохраняет суперпользователя.
+
+        Args:
+            email (str): Электронный адрес суперпользователя.
+            password (str, optional): Пароль суперпользователя.
+            **extra_fields: Дополнительные поля модели User.
+
+        Returns:
+            User: созданный объект суперпользователя.
+        """
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
+    """
+    Расширенная модель пользователя, основана на AbstractUser, используется email в качестве логина.
+
+    Атрибуты:
+        username (None): исключен, используется email для входа.
+        email (EmailField): уникальный адрес электронной почты.
+        phone (CharField): номер телефона (опционально).
+        city (CharField): город проживания (опционально).
+        avatar (ImageField): изображение аватара пользователя (опционально).
+
+    Метаданные:
+        verbose_name (str): Название модели в единственном числе.
+        verbose_name_plural (str): Название модели во множественном числе.
+    """
     # Заменяем авторизацию на email
     username = None
     email = models.EmailField(("email address"), unique=True)
@@ -41,11 +81,27 @@ class User(AbstractUser):
         verbose_name_plural = "users"
 
     def __str__(self):
+        """
+        Возвращает строковое представление пользователя, в данном случае его email.
+
+        Returns:
+            str: email пользователя.
+        """
         return self.email
 
 
 class Payment(models.Model):
-    """Модель для хранения информации о платежах"""
+    """
+    Модель для хранения информации о платежах пользователей.
+
+    Атрибуты:
+        user (ForeignKey): связь с пользователем, совершившим платеж.
+        payment_date (DateTimeField): дата и время платежа.(текущее)
+        paid_course (ForeignKey): оплаченный курс (опционально).
+        paid_lesson (ForeignKey): оплаченный урок (опционально).
+        amount (DecimalField): сумма платежа.
+        payment_method (CharField): способ оплаты (наличные или перевод).
+    """
 
     # Выбор способа оплаты
     PAYMENT_METHOD_CASH = "cash"
@@ -55,7 +111,6 @@ class Payment(models.Model):
         (PAYMENT_METHOD_TRANSFER, "Перевод на счёт"),
     ]
 
-    # ссылка на пользователя
     user = models.ForeignKey(
         "User",
         on_delete=models.CASCADE,
@@ -63,10 +118,8 @@ class Payment(models.Model):
         related_name="payments",
     )
 
-    # Дата оплаты (автоматически текущая дата)
     payment_date = models.DateTimeField("Дата оплаты", auto_now_add=True)
 
-    # ссылка на курс (может быть пустой)
     paid_course = models.ForeignKey(
         "lms.Course",  # Импортированная модель из lms
         on_delete=models.SET_NULL,  # при удалении курса, платёж остаётся
@@ -76,7 +129,6 @@ class Payment(models.Model):
         null=True,
     )
 
-    # Ссылка на урок (может быть пустой)
     paid_lesson = models.ForeignKey(
         "lms.Lesson",  # Импортированная модель из lms
         on_delete=models.SET_NULL,
@@ -86,10 +138,8 @@ class Payment(models.Model):
         null=True,
     )
 
-    # Сумма оплаты
     amount = models.DecimalField("Сумма оплаты", max_digits=10, decimal_places=2)
 
-    # Способ оплаты
     payment_method = models.CharField(
         "Способ оплаты", max_length=20, choices=PAYMENT_METHOD_CHOICES
     )
@@ -100,6 +150,12 @@ class Payment(models.Model):
         ordering = ["-payment_date"]
 
     def __str__(self):
+        """
+        Формирует строковое представление платежа, указывая пользователя, оплаченный курс или урок, сумму и статус.
+
+        Returns:
+            str: описание платежа.
+        """
         if self.paid_course and self.paid_lesson:
             paid_for = "Ошибка: Указан и курс и урок"
         elif self.paid_course:

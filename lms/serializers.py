@@ -6,7 +6,10 @@ from .models import Course, Lesson
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    """Сериализатор для урока"""
+    """
+    Сериализатор для модели Lesson.
+    Используется для преобразования объектов уроков в удобный формат JSON и обратно.
+    """
 
     class Meta:
         model = Lesson
@@ -14,11 +17,14 @@ class LessonSerializer(serializers.ModelSerializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
-    """Сериализатор для курса. Выводит и количество уроков, и список уроков."""
+    """
+    Сериализатор для модели Course.
+    Предназначен для отображения информации о курсе, включая количество уроков и список уроков.
+    """
 
-    # Поле для вывода количества уроков
+    # Поле для вывода количества уроков, связанных с курсом
     lessons_count = serializers.SerializerMethodField()
-    # Поле для вывода списка уроков
+    # Поле для вывода списка уроков, связанных с курсом
     lessons = LessonSerializer(many=True, read_only=True)
 
     class Meta:
@@ -33,14 +39,27 @@ class CourseSerializer(serializers.ModelSerializer):
         )
 
     def get_lessons_count(self, obj):
-        """Метод для получения количества уроков в курсе"""
+        """
+        Метод для получения количества уроков, связанных с курсом.
+        Используется в качестве источника для поля lessons_count.
+        Args:
+            obj (Course): объект курса
+        Returns:
+            int: количество уроков, связанных с курсом
+        """
         return obj.lessons.count()
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    # Дополнительные поля для удобства чтения
+    """
+        Сериализатор для модели Payment.
+        Используется для отображения информации о платежах, включая связанную информацию о курсе, уроке и пользователе.
+        """
+    # Поле для отображения имени курса, связанного с платежом
     course_name = serializers.CharField(source="paid_course.name", read_only=True)
+    # Поле для отображения имени урока, связанного с платежом
     lesson_name = serializers.CharField(source="paid_lesson.name", read_only=True)
+    # Поле для отображения email пользователя, совершившего платеж
     user_email = serializers.CharField(source="user.email", read_only=True)
 
     class Meta:

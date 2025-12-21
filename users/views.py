@@ -6,21 +6,28 @@ from .serializers import UserRegistrationSerializer, UserSerializer
 
 
 class UserRegistrationAPIView(generics.CreateAPIView):
-    """Регистрация нового пользователя"""
+    """API для регистрации новых пользователей."""
+    # Модель пользователя
     queryset = User.objects.all()
+    # Сериализатор для регистрации
     serializer_class = UserRegistrationSerializer
-    permission_classes = [permissions.AllowAny]  # Доступно без авторизации
+    # Доступ разрешен без авторизации
+    permission_classes = [permissions.AllowAny]
 
 
 class UserProfileAPIView(generics.RetrieveUpdateAPIView):
-    """Просмотр и обновление профиля пользователя"""
+    """API для просмотра и обновления профиля текущего пользователя."""
+    # Сериализатор для профиля
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]  # Требует авторизации
+    # Требует авторизаци
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
+        # Возвращает текущего авторизованного пользователя
         return self.request.user
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
-    """Кастомный вью для получения JWT токена"""
-    permission_classes = [permissions.AllowAny]  # Доступно без авторизации
+    """Кастомный API-вью для получения JWT токена."""
+    # Доступ разрешен без авторизации
+    permission_classes = [permissions.AllowAny]

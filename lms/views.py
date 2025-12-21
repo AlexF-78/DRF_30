@@ -14,12 +14,19 @@ from .filters import PaymentFilter
 
 # CRUD для курсов через ViewSet
 class CourseViewSet(viewsets.ModelViewSet):
-    # queryset = Course.objects.prefetch_related("lessons").all()
+    """
+    ViewSet для управления курсами.
+    Предоставляет полный CRUD (создание, чтение, обновление, удаление) для курсов.
+    """
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
 
     def get_queryset(self):
-        """Пользователи видят только свои курсы, модераторы видят все"""
+        """
+        Возвращает queryset курсов в зависимости от прав пользователя.
+        - Пользователи видят только свои курсы.
+        - Модераторы видят все курсы.
+        """
         user = self.request.user
 
         # Модераторы видят все курсы
@@ -30,8 +37,13 @@ class CourseViewSet(viewsets.ModelViewSet):
         return Course.objects.prefetch_related("lessons").filter(owner_id=user.id)
 
     def get_permissions(self):
-        """Разграничение прав для разных действий"""
-        if self.action == 'create':  # Создавать могут только авторизованные пользователи (не модераторы)
+        """
+        Настраивает права доступа в зависимости от действия.
+        - Только авторизованные пользователи могут создавать и удалять курсы.
+        - Модераторы имеют расширенные права.
+        """
+        if self.action == 'create':
+            # Создавать могут только авторизованные пользователи (не модераторы)
             self.permission_classes = [IsAuthenticated, ~IsModerator]
         elif self.action == 'destroy':
             # Удалять могут только авторизованные пользователи (не модераторы)
@@ -39,21 +51,25 @@ class CourseViewSet(viewsets.ModelViewSet):
         return [permission() for permission in self.permission_classes]
 
     def perform_create(self, serializer):
-        """При создании курса назначаем владельца"""
+        """
+        При создании курса автоматически назначается его владелец - текущий пользователь.
+        """
         serializer.save(owner=self.request.user)
 
 
-# CRUD для уроков через Generic-классы
-
-
-# Получение списка уроков
 class LessonListAPIView(generics.ListAPIView):
+    """
+    API-эндпоинт для получения списка уроков.
+    Пользователи видят только свои уроки, модераторы - все уроки.
+    """
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Пользователи видят только свои уроки, модераторы видят всё"""
+        """
+        Возвращает queryset уроков в зависимости от прав пользователя.
+        """
         user = self.request.user
 
         # Модераторы видят все уроки
@@ -64,46 +80,63 @@ class LessonListAPIView(generics.ListAPIView):
         return Lesson.objects.filter(owner_id=user.id)
 
 
-# Получение одного урока
 class LessonRetrieveAPIView(generics.RetrieveAPIView):
+    """
+    API-эндпоинт для получения подробной информации об одном уроке.
+    Доступен пользователям, являющимся владельцами урока или модераторам.
+    """
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
 
 
-# Создание урока
 class LessonCreateAPIView(generics.CreateAPIView):
+    """
+    API-эндпоинт для создания нового урока.
+    Только авторизованные пользователи, не являющиеся модераторами, могут создавать уроки.
+    """
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, ~IsModerator]  # Модераторы не могут создавать
 
     def perform_create(self, serializer):
-        """При создании урока назначаем владельца"""
+        """
+        При создании урока автоматически назначается его владелец - текущий пользователь.
+        """
         serializer.save(owner=self.request.user)
 
 
-# Обновление урока
 class LessonUpdateAPIView(generics.UpdateAPIView):
+    """
+    API-эндпоинт для обновления существующего урока.
+    Пользователи, являющиеся владельцами урока или модераторы, имеют право редактировать.
+    """
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
 
 
-# Удаление урока
 class LessonDestroyAPIView(generics.DestroyAPIView):
+    """
+    API-эндпоинт для удаления урока.
+    Удалять могут только владельцы уроков или модераторы.
+    """
     queryset = Lesson.objects.all()
     permission_classes = [IsAuthenticated, ~IsModerator]  # Модераторы не могут удалять
 
 
 class PaymentListAPIView(generics.ListAPIView):
     """
-    Эндпоинт для вывода списка платежей с фильтрацией и сортировкой
+    API-эндпоинт для получения списка платежей.
+    Поддерживает фильтрацию и сортировку.
+    - Пользователи видят только свои платежи.
+    - Администраторы видят все платежи.
     """
 
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
-    # Фильтрация и сортировка
+    # Включение фильтрации и сортировки по указанным полям
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = PaymentFilter
 
@@ -112,6 +145,7 @@ class PaymentListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         """
+        Возвращает queryset платежей в зависимости от прав пользователя.
         Пользователи видят только свои платежи
         Администраторы видят все платежи
         """
