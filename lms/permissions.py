@@ -23,7 +23,7 @@ class IsModerator(BasePermission):
             return False
 
         # Проверяем, входит ли пользователь в группу 'moderators'
-        return request.user.groups.filter(name='moderators').exists()
+        return request.user.groups.filter(name="moderators").exists()
 
 
 class IsOwner(BasePermission):
@@ -50,7 +50,7 @@ class IsOwner(BasePermission):
             return True
 
         # Проверяем наличие у объекта поля owner и сравниваем его с текущим пользователем
-        if hasattr(obj, 'owner'):
+        if hasattr(obj, "owner"):
             return obj.owner == request.user
         # Если у объекта нет поля owner, то разрешение отвергается
         return False
@@ -76,12 +76,12 @@ class IsOwnerOrModerator(BasePermission):
         return request.user and request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
-        """ Проверяет, имеет ли пользователь право доступа к конкретному объекту."""
+        """Проверяет, имеет ли пользователь право доступа к конкретному объекту."""
         # Проверяем, является ли текущий пользователь модератором
-        if request.user.groups.filter(name='moderators').exists():
+        if request.user.groups.filter(name="moderators").exists():
             return True
 
         # Владельцы имеют доступ к своим объектам
-        if hasattr(obj, 'owner'):
+        if hasattr(obj, "owner"):
             return obj.owner == request.user
         return False
