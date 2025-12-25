@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from users.models import Payment
 
-from .models import Course, Lesson
+from .models import Course, Lesson, Subscription
+from .validators import validate_youtube_url
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -10,6 +11,8 @@ class LessonSerializer(serializers.ModelSerializer):
     Сериализатор для модели Lesson.
     Используется для преобразования объектов уроков в удобный формат JSON и обратно.
     """
+
+    video_link = serializers.URLField(validators=[validate_youtube_url])
 
     class Meta:
         model = Lesson
@@ -21,6 +24,8 @@ class CourseSerializer(serializers.ModelSerializer):
     Сериализатор для модели Course.
     Предназначен для отображения информации о курсе, включая количество уроков и список уроков.
     """
+
+    is_subscribed = serializers.SerializerMethodField()
 
     # Поле для вывода количества уроков, связанных с курсом
     lessons_count = serializers.SerializerMethodField()
@@ -36,7 +41,14 @@ class CourseSerializer(serializers.ModelSerializer):
             "description",
             "lessons_count",
             "lessons",
+            "is_subscribed",
         )
+
+    def get_is_subscribed(self, obj):
+        user = self.context["request"].user
+        if user.is_authenticated:
+            return Subscription.objects.filter(user=user, course=obj).exists()
+        return False
 
     def get_lessons_count(self, obj):
         """
@@ -52,9 +64,10 @@ class CourseSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     """
-        Сериализатор для модели Payment.
-        Используется для отображения информации о платежах, включая связанную информацию о курсе, уроке и пользователе.
-        """
+    Сериализатор для модели Payment.
+    Используется для отображения информации о платежах, включая связанную информацию о курсе, уроке и пользователе.
+    """
+
     # Поле для отображения имени курса, связанного с платежом
     course_name = serializers.CharField(source="paid_course.name", read_only=True)
     # Поле для отображения имени урока, связанного с платежом
@@ -77,3 +90,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             "payment_method",
         ]
         read_only_fields = ["payment_date"]
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscription
+        fields = "__all__"
+        read_only_fields = ["user"]
