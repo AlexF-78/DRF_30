@@ -1,10 +1,13 @@
+# from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from . import views
+from .views import SubscriptionToggleView, SubscriptionViewSet
 
 router = DefaultRouter()
 router.register(r"courses", views.CourseViewSet, basename="courses")
+router.register(r"subscriptions", SubscriptionViewSet, basename="subscriptions")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -26,4 +29,9 @@ urlpatterns = [
         name="lesson-delete",
     ),
     path("payments/", views.PaymentListAPIView.as_view(), name="payment-list"),
+    path(
+        "api/subscription/toggle/",
+        SubscriptionToggleView.as_view(),
+        name="subscription-toggle",
+    ),
 ]
