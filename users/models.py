@@ -3,7 +3,8 @@ from django.db import models
 
 
 class UserManager(BaseUserManager):
-    """ Менеджер пользователя, реализующий создание обычных пользователей и суперпользователей."""
+    """Менеджер пользователя, реализующий создание обычных пользователей и суперпользователей."""
+
     def create_user(self, email, password=None, **extra_fields):
         """
         Создает и сохраняет пользователя с указанным email и паролем.
@@ -59,6 +60,7 @@ class User(AbstractUser):
         verbose_name (str): Название модели в единственном числе.
         verbose_name_plural (str): Название модели во множественном числе.
     """
+
     # Заменяем авторизацию на email
     username = None
     email = models.EmailField(("email address"), unique=True)
