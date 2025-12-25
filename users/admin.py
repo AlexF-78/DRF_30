@@ -11,6 +11,7 @@ class CustomUserAdmin(UserAdmin):
     Админский интерфейс для управления пользователями.
     Расширяет стандартный UserAdmin, добавляя дополнительные поля и настройки.
     """
+
     model = User
     list_display = ["email", "phone", "city", "is_staff"]
     list_filter = ["is_staff", "is_superuser", "city"]
@@ -18,16 +19,42 @@ class CustomUserAdmin(UserAdmin):
     # Описание полей, отображаемых при редактировании пользователя
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Персональная информация", {"fields": ("first_name", "last_name", "phone", "city", "avatar")}),
-        ("Права доступа", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (
+            "Персональная информация",
+            {"fields": ("first_name", "last_name", "phone", "city", "avatar")},
+        ),
+        (
+            "Права доступа",
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
         ("Важные даты", {"fields": ("last_login", "date_joined")}),
     )
     # Поля для добавления нового пользователя
     add_fieldsets = (
-        (None, {
-            "classes": ("wide",),
-            "fields": ("email", "password1", "password2", "first_name", "last_name", "phone", "city", "avatar"),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "email",
+                    "password1",
+                    "password2",
+                    "first_name",
+                    "last_name",
+                    "phone",
+                    "city",
+                    "avatar",
+                ),
+            },
+        ),
     )
     # Поля для поиска по списку пользователей
     search_fields = ("email", "first_name", "last_name")
@@ -40,6 +67,7 @@ class PaymentAdmin(admin.ModelAdmin):
     Админский интерфейс для управления платежами.
     Включает кастомные отображения и фильтры.
     """
+
     list_display = (
         "id",
         "user_email",
