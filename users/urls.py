@@ -1,8 +1,14 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from .views import (CustomTokenObtainPairView, UserProfileAPIView,
-                    UserRegistrationAPIView)
+from .views import (
+    CustomTokenObtainPairView,
+    UserProfileAPIView,
+    UserRegistrationAPIView,
+    PaymentCreateAPIView,
+    PaymentSuccessAPIView,
+    PaymentCancelAPIView,
+)
 
 urlpatterns = [
     # Эндпоинты без необходимости авторизации (открытые для всех)
@@ -17,4 +23,7 @@ urlpatterns = [
     # Эндпоинт, требующий авторизацию (доступен только для авторизованных пользователей)
     # Получение профиля текущего пользователя
     path("profile/", UserProfileAPIView.as_view(), name="user_profile"),
+    path("payments/create/", PaymentCreateAPIView.as_view(), name="payment-create"),
+    path("payments/success/", PaymentSuccessAPIView.as_view(), name="payment-success"),
+    path("payments/cancel/", PaymentCancelAPIView.as_view(), name="payment-cancel"),
 ]
