@@ -1,9 +1,12 @@
-﻿from django.contrib.auth import get_user_model
+﻿from unittest.mock import patch, MagicMock
+
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from lms.models import Course, Lesson, Subscription
+from users.models import Payment
 
 # Получаем кастомную модель пользователя
 User = get_user_model()
@@ -103,7 +106,7 @@ class LessonCRUDTestCase(TestCase):
         self.client.force_authenticate(user=self.user2)
 
         # Проверяем, что user2 может получить СВОЙ урок
-        other_lesson_url = f'/lessons/{other_lesson.id}/'
+        other_lesson_url = f"/lessons/{other_lesson.id}/"
         response_own = self.client.get(other_lesson_url)
         self.assertEqual(response_own.status_code, status.HTTP_200_OK)
 
@@ -383,3 +386,224 @@ class PaginationTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 10)  # По умолчанию 10
         self.assertIn("next", response.data)
+
+
+class StripePaymentTestCase(TestCase):
+    def setUp(self):
+        """Настройка тестовых данных для платежей"""
+        # Создаем пользователя
+        self.user = User.objects.create_user(
+            email="payment_test@example.com", password="testpass123"
+        )
+
+        # Создаем курс для оплаты
+        self.course = Course.objects.create(
+            name="Premium Course",
+            description="Course for payment testing",
+            owner=self.user,
+        )
+
+        # Создаем урок для оплаты
+        self.lesson = Lesson.objects.create(
+            name="Premium Lesson",
+            description="Lesson for payment testing",
+            video_link="https://www.youtube.com/watch?v=testpayment",
+            course=self.course,
+            owner=self.user,
+        )
+
+        # Создаем клиент API
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # URL для платежей
+        self.payments_url = "/api/users/payments/create/"
+
+    @patch("users.views.create_stripe_product")
+    @patch("users.views.create_stripe_price")
+    @patch("users.views.create_stripe_checkout_session")
+    def test_create_payment_for_course(self, mock_session, mock_price, mock_product):
+        """Тест создания платежа для курса через Stripe"""
+        # Мокируем ответы Stripe
+        mock_product.return_value = "prod_test123"
+        mock_price.return_value = "price_test123"
+        mock_session.return_value = MagicMock(
+            id="cs_test_session123", url="https://checkout.stripe.com/pay/cs_test_123"
+        )
+
+        # Данные для создания платежа - используем константу
+        data = {
+            "paid_course": self.course.id,
+            "amount": 1500.00,
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        # Отправляем запрос
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Проверяем ответ
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Проверяем, что платеж создан в БД
+        self.assertEqual(Payment.objects.count(), 1)
+        payment = Payment.objects.first()
+
+        # Проверяем поля платежа
+        self.assertEqual(payment.user, self.user)
+        self.assertEqual(payment.paid_course, self.course)
+        self.assertEqual(payment.amount, 1500.00)
+        self.assertEqual(payment.payment_method, Payment.PAYMENT_METHOD_TRANSFER)
+
+        # Проверяем, что Stripe функции были вызваны
+        mock_product.assert_called_once()
+        mock_price.assert_called_once()
+        mock_session.assert_called_once()
+
+        # Проверяем ответ API
+        response_data = response.json()
+        self.assertIn("stripe_payment_link", response_data)
+        self.assertEqual(response_data["stripe_product_id"], "prod_test123")
+        self.assertEqual(response_data["stripe_price_id"], "price_test123")
+        self.assertEqual(response_data["stripe_session_id"], "cs_test_session123")
+
+    @patch("users.views.create_stripe_product")
+    @patch("users.views.create_stripe_price")
+    @patch("users.views.create_stripe_checkout_session")
+    def test_create_payment_for_lesson(self, mock_session, mock_price, mock_product):
+        """Тест создания платежа для урока через Stripe"""
+        # Мокируем ответы Stripe
+        mock_product.return_value = "prod_lesson456"
+        mock_price.return_value = "price_lesson456"
+        mock_session.return_value = MagicMock(
+            id="cs_test_lesson456", url="https://checkout.stripe.com/pay/cs_test_456"
+        )
+
+        # Данные для создания платежа - используем константу
+        data = {
+            "paid_lesson": self.lesson.id,
+            "amount": 500.00,
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        # Отправляем запрос
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Проверяем ответ
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Проверяем, что платеж создан в БД
+        self.assertEqual(Payment.objects.count(), 1)
+        payment = Payment.objects.first()
+
+        # Проверяем поля
+        self.assertEqual(payment.paid_lesson, self.lesson)
+        self.assertEqual(payment.amount, 500.00)
+        self.assertEqual(payment.payment_method, Payment.PAYMENT_METHOD_TRANSFER)
+
+        # Проверяем, что Stripe функции были вызваны (хотя бы product для урока)
+        mock_product.assert_called_once()
+
+    def test_create_payment_with_cash_method(self):
+        """Тест создания платежа наличными (без Stripe)"""
+        data = {
+            "paid_course": self.course.id,
+            "amount": 1500.00,
+            "payment_method": Payment.PAYMENT_METHOD_CASH,  # Наличные
+        }
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Проверяем, что платеж создан без вызова Stripe
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Payment.objects.count(), 1)
+
+        payment = Payment.objects.first()
+        self.assertEqual(payment.payment_method, Payment.PAYMENT_METHOD_CASH)
+        # Поля Stripe должны быть пустыми
+        self.assertIsNone(payment.stripe_product_id)
+        self.assertIsNone(payment.stripe_price_id)
+
+    def test_create_payment_without_course_or_lesson(self):
+        """Тест создания платежа без курса или урока"""
+        data = {"amount": 1500.00, "payment_method": Payment.PAYMENT_METHOD_TRANSFER}
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Должна быть ошибка валидации
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_payment_with_both_course_and_lesson(self):
+        """Тест создания платежа с указанием и курса и урока"""
+        data = {
+            "paid_course": self.course.id,
+            "paid_lesson": self.lesson.id,
+            "amount": 1500.00,
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Должна быть ошибка валидации
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_payment_with_negative_amount(self):
+        """Тест создания платежа с отрицательной суммой"""
+        data = {
+            "paid_course": self.course.id,
+            "amount": -100.00,  # Отрицательная сумма
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Должна быть ошибка валидации
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("users.views.create_stripe_product")
+    @patch("users.views.create_stripe_price")
+    @patch("users.views.create_stripe_checkout_session")
+    def test_stripe_error_handling(self, mock_session, mock_price, mock_product):
+        """Тест обработки ошибок Stripe"""
+        # Мокируем ошибку Stripe
+        mock_product.side_effect = Exception("Stripe API Error")
+
+        data = {
+            "paid_course": self.course.id,
+            "amount": 1500.00,
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Ожидаем 201, даже при ошибке Stripe (платеж создается без Stripe данных)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Проверяем, что только create_stripe_product была вызвана
+        mock_product.assert_called_once()
+        # При ошибке в create_stripe_product, остальные функции не должны вызываться
+        mock_price.assert_not_called()
+        mock_session.assert_not_called()
+
+        # Проверяем, что платеж создан
+        payment = Payment.objects.first()
+        self.assertIsNotNone(payment)
+
+        # При ошибке Stripe, поля должны быть пустыми
+        self.assertIsNone(payment.stripe_product_id)
+        self.assertIsNone(payment.stripe_price_id)
+        self.assertIsNone(payment.stripe_session_id)
+
+    def test_payment_unauthenticated(self):
+        """Тест создания платежа без аутентификации"""
+        self.client.force_authenticate(user=None)  # Снимаем аутентификацию
+
+        data = {
+            "paid_course": self.course.id,
+            "amount": 1500.00,
+            "payment_method": Payment.PAYMENT_METHOD_TRANSFER,
+        }
+
+        response = self.client.post(self.payments_url, data, format="json")
+
+        # Должна быть ошибка авторизации
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
