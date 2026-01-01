@@ -1,4 +1,6 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, viewsets
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import get_object_or_404
@@ -12,8 +14,12 @@ from .filters import PaymentFilter
 from .models import Course, Lesson, Subscription
 from .paginators import StandardResultsSetPagination
 from .permissions import IsModerator, IsOwnerOrModerator
-from .serializers import (CourseSerializer, LessonSerializer,
-                          PaymentSerializer, SubscriptionSerializer)
+from .serializers import (
+    CourseSerializer,
+    LessonSerializer,
+    PaymentSerializer,
+    SubscriptionSerializer,
+)
 
 
 # CRUD для курсов через ViewSet
@@ -27,6 +33,35 @@ class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
     pagination_class = StandardResultsSetPagination
+
+    @swagger_auto_schema(
+        tags=["Курсы"], operation_description="Получение списка курсов с пагинацией"
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=["Курсы"],
+        operation_description="Создание нового курса",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["name"],
+            properties={
+                "name": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Название курса"
+                ),
+                "description": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Описание курса"
+                ),
+                "preview": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Превью курса (URL изображения)",
+                ),
+            },
+        ),
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         """
@@ -70,6 +105,35 @@ class LessonViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
+    @swagger_auto_schema(
+        tags=["Уроки"],
+        operation_description="Создание нового урока",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["name", "video_link", "course"],
+            properties={
+                "name": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Название урока"
+                ),
+                "description": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Описание урока"
+                ),
+                "video_link": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Ссылка на видео урока"
+                ),
+                "course": openapi.Schema(
+                    type=openapi.TYPE_INTEGER, description="ID курса"
+                ),
+                "preview": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Превью урока (URL изображения)",
+                ),
+            },
+        ),
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
     def get_queryset(self):
         # Возвращаем только уроки текущего пользователя
         return Lesson.objects.filter(owner=self.request.user)
@@ -89,6 +153,21 @@ class LessonListAPIView(generics.ListAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+
+    @swagger_auto_schema(
+        tags=["Уроки"],
+        operation_description="Получение списка уроков с пагинацией",
+        manual_parameters=[
+            openapi.Parameter(
+                "ordering",
+                openapi.IN_QUERY,
+                description="Поле для сортировки (например: name, -created_at)",
+                type=openapi.TYPE_STRING,
+            )
+        ],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         """
@@ -114,6 +193,10 @@ class LessonRetrieveAPIView(generics.RetrieveAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
 
+    @swagger_auto_schema(tags=["Уроки"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class LessonCreateAPIView(generics.CreateAPIView):
     """
@@ -127,6 +210,35 @@ class LessonCreateAPIView(generics.CreateAPIView):
         IsAuthenticated,
         ~IsModerator,
     ]  # Модераторы не могут создавать
+
+    @swagger_auto_schema(
+        tags=["Уроки"],
+        operation_description="Создание нового урока",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["name", "video_link", "course"],
+            properties={
+                "name": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Название урока"
+                ),
+                "description": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Описание урока"
+                ),
+                "video_link": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Ссылка на видео урока"
+                ),
+                "course": openapi.Schema(
+                    type=openapi.TYPE_INTEGER, description="ID курса"
+                ),
+                "preview": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Превью урока (URL изображения)",
+                ),
+            },
+        ),
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         """
@@ -145,6 +257,14 @@ class LessonUpdateAPIView(generics.UpdateAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrModerator]
 
+    @swagger_auto_schema(tags=["Уроки"])
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Уроки"])
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
 
 class LessonDestroyAPIView(generics.DestroyAPIView):
     """
@@ -158,6 +278,10 @@ class LessonDestroyAPIView(generics.DestroyAPIView):
         IsAuthenticated,
         IsOwnerOrModerator,
     ]  # Модераторы не могут удалять
+
+    @swagger_auto_schema(tags=["Уроки"])
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
 
     def get_permissions(self):
         # Проверяем, что пользователь - владелец (не модератор)
@@ -185,6 +309,39 @@ class PaymentListAPIView(generics.ListAPIView):
 
     # Поля для сортировки
     ordering_fields = ["payment_date", "amount"]
+
+    @swagger_auto_schema(
+        tags=["Платежи"],
+        operation_description="Получение списка платежей с фильтрацией и сортировкой",
+        manual_parameters=[
+            openapi.Parameter(
+                "ordering",
+                openapi.IN_QUERY,
+                description="Поле для сортировки (payment_date, amount)",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "payment_method",
+                openapi.IN_QUERY,
+                description="Метод оплаты (cash, transfer)",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "course",
+                openapi.IN_QUERY,
+                description="ID курса",
+                type=openapi.TYPE_INTEGER,
+            ),
+            openapi.Parameter(
+                "lesson",
+                openapi.IN_QUERY,
+                description="ID урока",
+                type=openapi.TYPE_INTEGER,
+            ),
+        ],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         """
@@ -217,6 +374,43 @@ class SubscriptionToggleView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        tags=["Подписки"],
+        operation_description="""
+        Переключение подписки на курс.
+
+        Если пользователь не подписан на курс - создается подписка.
+        Если уже подписан - подписка удаляется.
+
+        Требуется авторизация. Возвращает статус подписки после переключения.
+        """,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["course_id"],
+            properties={
+                "course_id": openapi.Schema(
+                    type=openapi.TYPE_INTEGER, description="ID курса для подписки"
+                )
+            },
+        ),
+        responses={
+            200: openapi.Response(
+                "Успешное переключение подписки",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description="Сообщение о результате операции",
+                        )
+                    },
+                ),
+            ),
+            400: openapi.Response("Неверные данные"),
+            401: openapi.Response("Пользователь не авторизован"),
+            404: openapi.Response("Курс не найден"),
+        },
+    )
     def post(self, request, course_id=None, *args, **kwargs):
         user = request.user
         course = get_object_or_404(Course, id=course_id)
@@ -250,6 +444,26 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Подписки"])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=["Подписки"],
+        operation_description="Создание новой подписки на курс",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["course"],
+            properties={
+                "course": openapi.Schema(
+                    type=openapi.TYPE_INTEGER, description="ID курса для подписки"
+                )
+            },
+        ),
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         # Возвращаем только подписки текущего пользователя
