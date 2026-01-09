@@ -5,17 +5,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .serializers import PaymentSerializer
-from lms.services import (
-    create_stripe_product,
-    create_stripe_price,
-    create_stripe_checkout_session,
-)
-from .models import User, Payment
-from .serializers import (
-    UserRegistrationSerializer,
-    UserSerializer,
-)
+from lms.services import (create_stripe_checkout_session, create_stripe_price,
+                          create_stripe_product)
+
+from .models import Payment, User
+from .serializers import (PaymentSerializer, UserRegistrationSerializer,
+                          UserSerializer)
 
 
 class UserRegistrationAPIView(generics.CreateAPIView):
