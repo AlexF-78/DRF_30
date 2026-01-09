@@ -14,12 +14,9 @@ from .filters import PaymentFilter
 from .models import Course, Lesson, Subscription
 from .paginators import StandardResultsSetPagination
 from .permissions import IsModerator, IsOwnerOrModerator
-from .serializers import (
-    CourseSerializer,
-    LessonSerializer,
-    PaymentSerializer,
-    SubscriptionSerializer,
-)
+from .serializers import (CourseSerializer, LessonSerializer,
+                          PaymentSerializer, SubscriptionSerializer)
+from .tasks import send_course_update_notification
 
 
 # CRUD для курсов через ViewSet
@@ -97,6 +94,15 @@ class CourseViewSet(viewsets.ModelViewSet):
         При создании курса автоматически назначается его владелец - текущий пользователь.
         """
         serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        """
+        Сохраняет обновление курса и запускает асинхронную рассылку уведомлений подписчикам
+        """
+        course = serializer.save()
+        # Запускаем асинхронную задачу для отправки уведомлений
+        send_course_update_notification.delay(course.id)
+        return course
 
 
 class LessonViewSet(viewsets.ModelViewSet):
