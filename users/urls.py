@@ -1,14 +1,9 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from .views import (
-    CustomTokenObtainPairView,
-    UserProfileAPIView,
-    UserRegistrationAPIView,
-    PaymentCreateAPIView,
-    PaymentSuccessAPIView,
-    PaymentCancelAPIView,
-)
+from .views import (CustomTokenObtainPairView, PaymentCancelAPIView,
+                    PaymentCreateAPIView, PaymentSuccessAPIView,
+                    UserProfileAPIView, UserRegistrationAPIView)
 
 urlpatterns = [
     # Эндпоинты без необходимости авторизации (открытые для всех)
