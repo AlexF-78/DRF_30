@@ -70,3 +70,57 @@ CRUD курсов и уроков
 Работа с платежами (список, фильтрация)
 Примечание: для работы с защищенными эндпоинтами необходимо получить токен JWT
 и передавать его в заголовке Authorization: Bearer <token>.
+
+## Запуск с помощью Docker Compose
+
+### Предварительные требования
+- Установленный Docker и Docker Compose
+- Файл `.env` с переменными окружения (на основе `.env.sample`)
+
+### Запуск проекта
+```bash
+# Собрать и запустить все сервисы
+docker-compose up -d
+
+# Остановить все сервисы
+docker-compose down
+
+# Просмотр логов
+docker-compose logs -f web
+Проверка работоспособности
+Django приложение: http://localhost:8000
+
+PostgreSQL: docker-compose exec db psql -U postgres -d drf_30_db
+
+Redis: docker-compose exec redis redis-cli ping
+
+Celery worker: docker-compose logs celery
+
+Celery beat: docker-compose logs celery_beat
+
+Полезные команды
+bash
+# Создать суперпользователя Django
+docker-compose exec web python manage.py createsuperuser
+
+# Выполнить миграции (выполняются автоматически при запуске)
+docker-compose exec web python manage.py migrate
+
+# Проверить статус сервисов
+docker-compose ps
+
+# Пересобрать образы
+docker-compose build --no-cache
+
+# Выполнить тесты
+docker-compose exec web python manage.py test
+Структура сервисов
+web: Django приложение на порту 8000
+
+db: PostgreSQL на порту 5433 (внешнем), 5432 (внутреннем)
+
+redis: Redis на порту 6379
+
+celery: Celery worker
+
+celery_beat: Celery beat scheduler
