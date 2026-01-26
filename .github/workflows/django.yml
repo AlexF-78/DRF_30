@@ -59,12 +59,18 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install --no-root
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev gcc
 
     - name: Run migrations
       run: |
         poetry run python manage.py migrate
       env:
         DEBUG: "True"
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         DB_NAME: test_db
         DB_USER: postgres
         DB_PASSWORD: postgres
