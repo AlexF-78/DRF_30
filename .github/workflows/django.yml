@@ -1,0 +1,133 @@
+name: Django CI/CD
+
+on:
+  push:
+    branches: [ develop, feature/homework_34_2 ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+  STRIPE_PUBLIC_KEY: ${{ secrets.STRIPE_PUBLIC_KEY }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        poetry install --no-root
+
+    - name: Run migrations
+      run: |
+        poetry run python manage.py migrate
+      env:
+        DEBUG: "True"
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379/0
+        ALLOWED_HOSTS: localhost,127.0.0.1
+
+    - name: Run tests
+      run: |
+        poetry run python manage.py test --noinput
+      env:
+        DEBUG: "True"
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379/0
+
+    - name: Run coverage
+      run: |
+        poetry run coverage run --source='.' manage.py test --noinput
+        poetry run coverage report
+        poetry run coverage xml
+      env:
+        DEBUG: "True"
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379/0
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/feature/homework_34_2' || github.ref == 'refs/heads/develop'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Deploy to Server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SERVER_PORT }}
+        script: |
+          # Активируем окружение
+          cd /home/phne-masq5ftz/projects/DRF_30
+          source /home/phne-masq5ftz/.cache/pypoetry/virtualenvs/drf-30-XhoTFWzo-py3.12/bin/activate
+          
+          # Обновляем код
+          git fetch origin
+          git reset --hard origin/${{ github.ref_name }}
+          
+          # Устанавливаем зависимости
+          poetry install --no-root
+          
+          # Применяем миграции
+          poetry run python manage.py migrate
+          
+          # Собираем статику
+          poetry run python manage.py collectstatic --noinput
+          
+          # Перезапускаем сервисы
+          sudo systemctl restart gunicorn
+          sudo systemctl restart nginx
+          
+          echo "Деплой успешно завершен!"

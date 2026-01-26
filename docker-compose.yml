@@ -9,18 +9,40 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+    healthcheck:
+      test: pg_isready -U ${DB_USER} -d ${DB_NAME}
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: redis-cli ping
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+
+  run_migrations:
+    build: .
+    command: python manage.py migrate
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
 
   web:
     build: .
-    command: sh -c "sleep 10 && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
@@ -28,8 +50,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      run_migrations:
+        condition: service_completed_successfully
+
 
   celery:
     build: .
@@ -39,9 +66,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
-      - web
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      run_migrations:
+        condition: service_completed_successfully
+
 
   celery_beat:
     build: .
@@ -51,9 +82,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
-      - web
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      run_migrations:
+        condition: service_completed_successfully
+
 
 volumes:
   postgres_data:
