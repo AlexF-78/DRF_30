@@ -124,3 +124,150 @@ redis: Redis на порту 6379
 celery: Celery worker
 
 celery_beat: Celery beat scheduler
+
+
+
+##  Деплой на продакшен сервер
+
+### Настройка сервера (Ubuntu 24.04)
+
+1. **Обновление системы и установка базовых пакетов:**
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3-pip python3-venv nginx postgresql postgresql-contrib git curl
+Установка Poetry:
+
+bash
+curl -sSL https://install.python-poetry.org | python3 -
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+Настройка PostgreSQL:
+
+bash
+sudo -u postgres psql
+CREATE DATABASE drf_30_db;
+ALTER USER postgres WITH PASSWORD 'your_password';
+\q
+Клонирование проекта:
+
+bash
+cd ~
+mkdir -p projects
+cd projects
+git clone https://github.com/AlexF-78/DRF_30.git
+cd DRF_30
+Настройка окружения:
+
+bash
+cp .env.sample .env
+# Отредактируйте .env файл с настройками для продакшена
+Установка зависимостей:
+
+bash
+poetry install --no-root
+poetry shell
+Настройка базы данных:
+
+bash
+python manage.py migrate
+python manage.py collectstatic
+python manage.py createsuperuser
+Настройка Gunicorn как systemd сервиса:
+
+bash
+sudo nano /etc/systemd/system/gunicorn.service
+Содержимое файла:
+
+ini
+[Unit]
+Description=gunicorn daemon for DRF project
+After=network.target postgresql.service
+
+[Service]
+User=ваш_пользователь
+Group=www-data
+WorkingDirectory=/home/ваш_пользователь/projects/DRF_30
+UMask=007
+Environment="PATH=/home/ваш_пользователь/.cache/pypoetry/virtualenvs/drf-30-*/bin"
+ExecStart=/home/ваш_пользователь/.cache/pypoetry/virtualenvs/drf-30-*/bin/gunicorn \
+          --access-logfile - \
+          --workers 3 \
+          --bind unix:/home/ваш_пользователь/projects/DRF_30/gunicorn.sock \
+          config.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+Настройка NGINX:
+
+bash
+sudo nano /etc/nginx/sites-available/drf_project
+Содержимое файла:
+
+nginx
+server {
+    listen 80;
+    server_name ваш_домен_или_ip;
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    
+    location /static/ {
+        alias /home/ваш_пользователь/static/;
+    }
+
+    location /media/ {
+        alias /home/ваш_пользователь/media/;
+    }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/home/ваш_пользователь/projects/DRF_30/gunicorn.sock;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+Запуск сервисов:
+
+bash
+sudo systemctl daemon-reload
+sudo systemctl start gunicorn
+sudo systemctl enable gunicorn
+sudo systemctl restart nginx
+🔄 CI/CD с GitHub Actions
+Проект настроен с автоматическим CI/CD пайплайном через GitHub Actions.
+
+Workflow файл: .github/workflows/django.yml
+При каждом push в ветки develop или feature/homework_34_2:
+
+Запускаются автоматические тесты с Python 3.12
+
+Проверяются миграции базы данных
+
+Запускается покрытие кода (coverage)
+
+Происходит автоматический деплой на продакшен сервер
+
+Настроенные Secrets в GitHub:
+SERVER_HOST - IP адрес сервера
+
+SERVER_USER - имя пользователя на сервере
+
+SERVER_PORT - порт SSH (22)
+
+SSH_PRIVATE_KEY - приватный SSH ключ
+
+SECRET_KEY - секретный ключ Django
+
+DATABASE_URL - строка подключения к БД
+
+STRIPE_API_KEY, STRIPE_PUBLIC_KEY - ключи Stripe
+
+Статус CI/CD:
+https://github.com/AlexF-78/DRF_30/actions/workflows/django.yml/badge.svg
+
+📋 Проверка работоспособности
+После деплоя проверьте:
+
+Основной endpoint: http://ваш_сервер_ip/
+
+Админ панель: http://ваш_сервер_ip/admin/
+
+Статус сервисов: sudo systemctl status gunicorn nginx postgresql
