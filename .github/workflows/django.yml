@@ -13,7 +13,7 @@ env:
   STRIPE_PUBLIC_KEY: ${{ secrets.STRIPE_PUBLIC_KEY }}
 
 jobs:
-  test:
+  test-and-build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -116,15 +116,19 @@ jobs:
         file: ./coverage.xml
         fail_ci_if_error: false
 
+    - name: Build Docker images
+      run: |
+        docker-compose -f docker-compose.yml build
+
   deploy:
-    needs: test
+    needs: test-and-build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/feature/homework_34_2' || github.ref == 'refs/heads/develop'
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Deploy to Server
+    - name: Deploy with Docker Compose
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -134,23 +138,25 @@ jobs:
         script: |
           # Активируем окружение
           cd /home/phne-masq5ftz/projects/DRF_30
-          source /home/phne-masq5ftz/.cache/pypoetry/virtualenvs/drf-30-XhoTFWzo-py3.12/bin/activate
           
-          # Обновляем код
+          # 1. Останавливаем systemd-сервисы (освобождаем порт 80)
+          sudo systemctl stop nginx
+          sudo systemctl stop gunicorn
+  
+          # 2. Отключаем автозапуск systemd-сервисов
+          sudo systemctl disable nginx gunicorn
+  
+          # 3. Обновляем код
           git fetch origin
           git reset --hard origin/${{ github.ref_name }}
-          
-          # Устанавливаем зависимости
-          poetry install --no-root
-          
-          # Применяем миграции
-          poetry run python manage.py migrate
-          
-          # Собираем статику
-          poetry run python manage.py collectstatic --noinput
-          
-          # Перезапускаем сервисы
-          sudo systemctl restart gunicorn
-          sudo systemctl restart nginx
-          
-          echo "Деплой успешно завершен!"
+  
+          # 4. Останавливаем старые Docker-контейнеры
+          docker-compose -f docker-compose.prod.yml down || true
+  
+          # 5. Запускаем PRODUCTION контейнеры
+          docker-compose -f docker-compose.prod.yml up -d --build
+  
+          # 6. Очищаем неиспользуемые образы
+          docker image prune -f
+  
+          echo "Production деплой через Docker Compose успешен! Systemd-сервисы остановлены, Docker контейнеры запущены."
