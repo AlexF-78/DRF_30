@@ -8,8 +8,8 @@ RUN apt-get update \
         postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем Poetry
-RUN pip install --no-cache-dir poetry
+# Устанавливаем Poetry и Gunicorn
+RUN pip install --no-cache-dir poetry gunicorn
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
