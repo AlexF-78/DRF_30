@@ -59,7 +59,7 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install --no-root
-        
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -126,7 +126,7 @@ jobs:
     - name: Build Docker images
       run: |
         docker-compose -f docker-compose.yml build
-        
+
   deploy:
     needs: test-and-build
     runs-on: ubuntu-latest
@@ -135,7 +135,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Test SSH Connection
+    - name: Deploy with Docker Compose
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -143,49 +143,40 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
-          echo "SSH подключение успешно!"
-          whoami
-          pwd
-          docker --version
-          docker-compose --version
-
-#  deploy:
-#    needs: test-and-build
-#    runs-on: ubuntu-latest
-#    if: github.ref == 'refs/heads/feature/homework_34_2' || github.ref == 'refs/heads/develop'
-#
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Deploy with Docker Compose
-#      uses: appleboy/ssh-action@v1.0.3
-#      with:
-#        host: ${{ secrets.SERVER_HOST }}
-#        username: ${{ secrets.SERVER_USER }}
-#        key: ${{ secrets.SSH_PRIVATE_KEY }}
-#        port: ${{ secrets.SERVER_PORT }}
-#        script: |
-#          # Активируем окружение
-#          cd /home/phne-masq5ftz/projects/DRF_30
-#
-#          # 1. Останавливаем systemd-сервисы (освобождаем порт 80)
-#          sudo systemctl stop nginx
-#          sudo systemctl stop gunicorn
-#
-#          # 2. Отключаем автозапуск systemd-сервисов
-#          sudo systemctl disable nginx gunicorn
-#
-#          # 3. Обновляем код
-#          git fetch origin
-#          git reset --hard origin/${{ github.ref_name }}
-#
-#          # 4. Останавливаем старые Docker-контейнеры
-#          docker-compose -f docker-compose.prod.yml down || true
-#
-#          # 5. Запускаем PRODUCTION контейнеры
-#          docker-compose -f docker-compose.prod.yml up -d --build
-#
-#          # 6. Очищаем неиспользуемые образы
-#          docker image prune -f
-#
-#          echo "Production деплой через Docker Compose успешен! Systemd-сервисы остановлены, Docker контейнеры запущены."
+          # Создаем папку если не существует
+          mkdir -p /home/phne-masq5ftz/projects
+  
+          # Переходим в папку проекта
+          cd /home/phne-masq5ftz/projects
+  
+          # Если репозиторий не склонирован - клонируем
+          if [ ! -d "DRF_30" ]; then
+              git clone https://github.com/AlexF-78/DRF_30.git
+          fi
+  
+          cd DRF_30
+  
+          # 1. Останавливаем systemd-сервисы (освобождаем порт 80)
+          sudo systemctl stop nginx 2>/dev/null || echo "Сервис nginx не найден или уже остановлен"
+          sudo systemctl stop gunicorn 2>/dev/null || echo "Сервис gunicorn не найден или уже остановлен"
+  
+          # 2. Отключаем автозапуск systemd-сервисов
+          sudo systemctl disable nginx 2>/dev/null || echo "Сервис nginx не найден"
+          sudo systemctl disable gunicorn 2>/dev/null || echo "Сервис gunicorn не найден"
+  
+          # 3. Обновляем код
+          git fetch origin
+          git reset --hard origin/${{ github.ref_name }}
+  
+          # 4. Останавливаем старые Docker-контейнеры
+          docker-compose -f docker-compose.prod.yml down || true
+  
+          # 5. Запускаем PRODUCTION контейнеры
+          docker-compose -f docker-compose.prod.yml up -d --build
+  
+          # 6. Очищаем неиспользуемые образы
+          docker image prune -f
+  
+          echo "Production деплой через Docker Compose успешен!"
+          echo "Запущенные контейнеры:"
+          docker ps
